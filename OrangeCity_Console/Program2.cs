@@ -84,7 +84,7 @@ namespace OrangeCity_Console
                 //From_Date = DateTime.Today.AddDays(-1);
                 //To_Date = DateTime.Today;
                 From_Date = DateTime.Today.AddDays(-1);
-                To_Date = DateTime.Today;
+                To_Date = DateTime.Today.AddDays(1);
                 Console.WriteLine("Trigger Auto from " + From_Date + " To " + To_Date);
                 Console.WriteLine("--------------------------------------------------");
                 //System.IO.StreamWriter sw = new System.IO.StreamWriter(fs);
@@ -195,7 +195,8 @@ namespace OrangeCity_Console
                             //else if(setup[20] == "1")
                             Location = results[i].LocID;
 
-                            String query2_CurrentTotalizer = query + " Where Mprn = '" + results[i].LocID + "' AND datetime >='" + from + "' AND datetime<='" + to + "'";
+                            //String query2_CurrentTotalizer = query + " Where Mprn = '" + results[i].LocID + "' AND datetime >='" + from + "' AND datetime<='" + to + "'";
+                            String query2_CurrentTotalizer = query + " Where Mprn = 'khrone_2' AND datetime >='" + from + "' AND datetime<='" + to + "'";
                             String query2_CurrentFlow = query_flow + " AND (datapoints.DataTime >= '" + from + "') AND (datapoints.DataTime <= '" + to + "') AND (sites.SiteID = '" + Location + "')";
                             String query2_loggerDetails = LoggerDetailsQuery + " Where sites.SiteID = '" + Location + "' ";
                             string query2_Pressure = pressurequery + " where sites.SiteID = '" + Location + "' AND datapoints.ChannelNumber= " + PChannel + " AND datapoints.DataTime >='" + from + "' AND datapoints.DataTime<='" + to + "'";
@@ -309,6 +310,8 @@ namespace OrangeCity_Console
                             //Flow Rate
                             using (SqlDataReader oReader3 = QueryFlow.ExecuteReader())
                             {
+                                ActFlowRate = 0;
+                                FlowRate = 0;
                                 while (oReader3.Read())
                                 {
                                     if (Consumption != 0)
@@ -318,7 +321,7 @@ namespace OrangeCity_Console
                                         if (setup[11] == "m3.h") { hrs = hrs / 60; }
 
                                         FlowRate = Consumption / hrs;
-                                        FlowRate = FlowRate * Convert.ToDecimal(setup[12]);
+                                        FlowRate = FlowRate * Convert.ToDecimal(setup[13]);
                                     }
                                     ActFlowRate = Math.Round(FlowRate, 2);
                                 }
@@ -328,22 +331,56 @@ namespace OrangeCity_Console
                             {
                                 if (InsertType == 2)
                                 {
-                                    Double idflow = (Convert.ToDouble( LogSerialNo) * 10) + 1;
-                                    Double idPress = (Convert.ToDouble(LogSerialNo) * 10) + 2;
-
-                                    string insertFlow = "INSERT INTO Site_Reading(seriel_number,site_name,phone_number,longitude,latitude,data_type,channel_index,id,value,DateTime,FlowRate) VALUES (" + LogSerialNo + ",'" + Location + "','" + LogSIMNo + "','" + Long + "','" + Lat + "',1,'D1a'," + idflow + ",'" + CurrentPeriod + "','" + to + "','" + ActFlowRate + "')";
-                                    string insertPressure = "INSERT INTO Site_Reading(seriel_number,site_name,phone_number,longitude,latitude,data_type,channel_index,id,value,DateTime,FlowRate) VALUES (" + LogSerialNo + ",'" + Location + "','" + LogSIMNo + "','" + Long + "','" + Lat + "',2,'A1'," + idPress + ",'" + PressureValue + "','" + to + "','')";
-
                                     NGPDBconn = new SqlConnection(RemoteDB);
+
                                     NGPDBconn.Open();
 
-                                    SqlCommand InFlow = new SqlCommand(insertFlow, NGPDBconn);
-                                    InFlow.ExecuteNonQuery();
-                                    SqlCommand InPress = new SqlCommand(insertPressure, NGPDBconn);
-                                    InPress.ExecuteNonQuery();
+                                    string chkRows = "SELECT COUNT(*) FROM Site_Reading where seriel_number =" + LogSerialNo + " and DateTime ='" + to + "'";
+                                    SqlCommand cmd = new SqlCommand(chkRows, NGPDBconn);
+                                    int RecCount = (int)cmd.ExecuteScalar();
+                                    if (RecCount > 0)
+                                    {
+                                        Double idflow = (Convert.ToDouble(LogSerialNo) * 10) + 1;
+                                        Double idPress = (Convert.ToDouble(LogSerialNo) * 10) + 2;
 
-                                    NGPDBconn.Close();
-                                    Console.WriteLine("Data : Location: {0}, Date Time: {1}, Pressure: {2}, Flow Rate: {3}, Totalizer: {4}", Location, to, PressureValue, ActFlowRate, CurrentPeriod);
+                                        //string insertFlow = "INSERT INTO Site_Reading(seriel_number,site_name,phone_number,longitude,latitude,data_type,channel_index,id,value,DateTime,FlowRate) VALUES (" + LogSerialNo + ",'" + Location + "','" + LogSIMNo + "','" + Long + "','" + Lat + "',1,'D1a'," + idflow + ",'" + CurrentPeriod + "','" + to + "','" + ActFlowRate + "')";
+                                        //string insertPressure = "INSERT INTO Site_Reading(seriel_number,site_name,phone_number,longitude,latitude,data_type,channel_index,id,value,DateTime,FlowRate) VALUES (" + LogSerialNo + ",'" + Location + "','" + LogSIMNo + "','" + Long + "','" + Lat + "',2,'A1'," + idPress + ",'" + PressureValue + "','" + to + "','')";
+                                        string insertFlow = "UPDATE Site_Reading SET value ='" + CurrentPeriod + "' , FlowRate = '" + ActFlowRate + "' WHERE channel_index = 'D1a' AND seriel_number = " + LogSerialNo + " AND DateTime ='" + to + "'";
+                                        string insertPressure = "UPDATE Site_Reading SET value ='" + PressureValue + "' , FlowRate = '' WHERE channel_index = 'A1' AND seriel_number = " + LogSerialNo + " AND DateTime ='" + to + "'";
+                                        
+                                        NGPDBconn = new SqlConnection(RemoteDB);
+                                        NGPDBconn.Open();
+
+                                        SqlCommand InFlow = new SqlCommand(insertFlow, NGPDBconn);
+                                        InFlow.ExecuteNonQuery();
+                                        SqlCommand InPress = new SqlCommand(insertPressure, NGPDBconn);
+                                        InPress.ExecuteNonQuery();
+
+                                        NGPDBconn.Close();
+                                        Console.WriteLine("Data : Location: {0}, Date Time: {1}, Pressure: {2}, Flow Rate: {3}, Totalizer: {4} -> UPDATE", Location, to, PressureValue, ActFlowRate, CurrentPeriod);
+
+                                    }
+                                    else
+                                    {
+                                        Double idflow = (Convert.ToDouble(LogSerialNo) * 10) + 1;
+                                        Double idPress = (Convert.ToDouble(LogSerialNo) * 10) + 2;
+
+                                        string insertFlow = "INSERT INTO Site_Reading(seriel_number,site_name,phone_number,longitude,latitude,data_type,channel_index,id,value,DateTime,FlowRate) VALUES (" + LogSerialNo + ",'" + Location + "','" + LogSIMNo + "','" + Long + "','" + Lat + "',1,'D1a'," + idflow + ",'" + CurrentPeriod + "','" + to + "','" + ActFlowRate + "')";
+                                        string insertPressure = "INSERT INTO Site_Reading(seriel_number,site_name,phone_number,longitude,latitude,data_type,channel_index,id,value,DateTime,FlowRate) VALUES (" + LogSerialNo + ",'" + Location + "','" + LogSIMNo + "','" + Long + "','" + Lat + "',2,'A1'," + idPress + ",'" + PressureValue + "','" + to + "','')";
+
+                                        NGPDBconn = new SqlConnection(RemoteDB);
+                                        NGPDBconn.Open();
+
+                                        SqlCommand InFlow = new SqlCommand(insertFlow, NGPDBconn);
+                                        InFlow.ExecuteNonQuery();
+                                        SqlCommand InPress = new SqlCommand(insertPressure, NGPDBconn);
+                                        InPress.ExecuteNonQuery();
+
+                                        NGPDBconn.Close();
+                                        Console.WriteLine("Data : Location: {0}, Date Time: {1}, Pressure: {2}, Flow Rate: {3}, Totalizer: {4} -> UPDATE", Location, to, PressureValue, ActFlowRate, CurrentPeriod);
+                                    }
+                                    
+
                                 }
                                 else if (InsertType == 1)
                                 {
@@ -385,7 +422,7 @@ namespace OrangeCity_Console
                                         InPress.ExecuteNonQuery();
 
                                         
-                                        Console.WriteLine("Data : Location: {0}, Date Time: {1}, Pressure: {2}, Flow Rate: {3}, Totalizer: {4}", Location, to, PressureValue, ActFlowRate, CurrentPeriod);
+                                        Console.WriteLine("Data : Location: {0}, Date Time: {1}, Pressure: {2}, Flow Rate: {3}, Totalizer: {4} -> INSERT", Location, to, PressureValue, ActFlowRate, CurrentPeriod);
                                     }
                                     NGPDBconn.Close();
                                 }
