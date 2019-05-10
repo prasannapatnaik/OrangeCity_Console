@@ -81,9 +81,11 @@ namespace OrangeCity_Console
             if (setup[9] == "A")
             {
                 typeprocess = "A";
+                int dt = Convert.ToInt32(setup[21]);
+                dt = dt * -1;
                 //From_Date = DateTime.Today.AddDays(-1);
                 //To_Date = DateTime.Today;
-                From_Date = DateTime.Today.AddDays(-1);
+                From_Date = DateTime.Today.AddDays(dt);
                 To_Date = DateTime.Today.AddDays(1);
                 Console.WriteLine("Trigger Auto from " + From_Date + " To " + To_Date);
                 Console.WriteLine("--------------------------------------------------");
